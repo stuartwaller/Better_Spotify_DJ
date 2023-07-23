@@ -9,8 +9,9 @@ import argparse
 from dotenv import load_dotenv
 load_dotenv()  
 
-#llm = ChatOpenAI(max_retries=3, temperature=0, model_name = "gpt-3.5-turbo-0613")
-llm = ChatOpenAI(max_retries=3, temperature=0)
+
+llm = ChatOpenAI(max_retries=3, temperature=0, model_name = "gpt-3.5-turbo-0613")
+#llm = ChatOpenAI(max_retries=3, temperature=0)
 memory = ConversationBufferMemory(memory_key="chat_history")
 def initialize_agent_with_new_openai_functions(tools: List, is_agent_verbose: bool = True, max_iterations: int = 3, return_thought_process: bool = False):
     agent = initialize_agent(tools, llm, memory=memory,
@@ -57,7 +58,9 @@ def main():
     else:
         print("Invalid mode. Choose '--mode text' or '--mode audio'.")
 
+
 if __name__ == "__main__":
+    print("\nRemember to awaken Spotify!")
     main()
 
 
