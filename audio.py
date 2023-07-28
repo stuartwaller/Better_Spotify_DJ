@@ -15,6 +15,7 @@ def record_audio(duration, fs, channels):
     print("Finished recording.")
     return recording
 
+
 # tempfile so we don't store unnecessary files
 def transcribe_audio(recording, fs):
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio:
