@@ -20,6 +20,11 @@ class GenreNameAndUserMoodInput(BaseModel):
     genre_name: str = Field(description="Genre name in the user's request.")
     user_mood: str = Field(description="User's current mood/state-of-being.") 
 
+
+class ArtistNameAndUserMoodInput(BaseModel):
+    artist_name: str = Field(description="Artist name in the user's request.") 
+    user_mood: str = Field(description="User's current mood/state-of-being.") 
+
 # return_direct=True returns tool output directly to user
 @tool("play_track_by_name", return_direct=True, args_schema=TrackNameInput) 
 def tool_play_track_by_name(track_name: str) -> str:
@@ -97,9 +102,25 @@ def tool_play_genre_by_name_and_mood(genre_name: str, user_mood: str) -> str:
     """
     Use this tool when a user wants to play a genre.
     You will need to identify both the genre name from the user's request, 
-    and also their current mood, which you should always be monitoring.
+    and also their current mood, which you should always be monitoring;
+    If the user requests a genre without explicitly stating their mood, ask them 
+    for their mood first. 
     """
     return spf.play_genre_by_name_and_mood(genre_name, user_mood)
+
+
+@tool("play_artist_by_name_and_mood", return_direct=True, args_schema=ArtistNameAndUserMoodInput) 
+def tool_play_artist_by_name_and_mood(artist_name: str, user_mood: str) -> str:
+    """
+    Use this tool when a user wants to play an artist.
+    You will need to identify both the artist name from the user's request, 
+    and also their current mood, which you should always be monitoring;
+    If the user requests an artist without explicitly stating their mood, ask them 
+    for their mood first. 
+    """
+    return spf.play_artist_by_name_and_mood(artist_name, user_mood)
+
+
 
 
 
@@ -122,6 +143,7 @@ custom_tools =[
     tool_play_album_by_name_and_artist,
     tool_play_playlist_by_name,
     tool_explain_track,
-    tool_play_genre_by_name_and_mood
+    tool_play_genre_by_name_and_mood,
+    tool_play_artist_by_name_and_mood
 ]
 

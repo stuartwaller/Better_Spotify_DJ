@@ -9,7 +9,9 @@ import requests
 from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
+import os
+from fuzzywuzzy import fuzz
+import random
 from dotenv import load_dotenv
 load_dotenv() 
 
@@ -132,15 +134,15 @@ def play_playlist_by_name(playlist_name):
         HumanMessage(content=human_message_content)
     ]
 
-    ai_response = str(llm(messages))
-    playlist_name = re.search("'(.*)'", ai_response).group(1)
+    ai_response = llm(messages).content
+    playlist_name = ai_response.strip("'")
     try: 
         playlist_id, creator_name = playlist_dict[playlist_name]
         sp.start_playback(device_id=device_id, context_uri=f'spotify:playlist:{playlist_id}')
         return f'Now playing {playlist_name} by {creator_name}.'
     except: 
         return "Unable to find playlist. Please try again."
-  
+
 
 # avoid creating new object everytime function is called
 genius = lyricsgenius.Genius() 
@@ -188,10 +190,9 @@ def explain_track():
         SystemMessage(content=system_message_content),
         HumanMessage(content=human_message_content)
     ]
-    ai_response = str(llm(messages))
-    ai_response = ai_response.split("content='")[1].split(" additional_kwargs")[0]
+    ai_response = llm(messages).content
     summary = f"""
-        **Name:** {basic_info["track_name"]}   
+        **Name:** <span style="color: red; font-weight: bold; font-style: italic;">{basic_info["track_name"]}</span>   
         **Artist:** {basic_info["artist_name"]}   
         **Album:** {basic_info["album_name"]}   
         **Release:** {basic_info["release_date"]}   
@@ -205,7 +206,7 @@ def explain_track():
     return summary
 
 
-### ### ### Personalization ### ### ###
+### ### ### Genre + Mood ### ### ###
 
 
 def get_user_mood(user_mood): 
@@ -227,13 +228,21 @@ def get_user_mood(user_mood):
     return user_mood
 
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false" # satisfies warning
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-genre_list = sp.recommendation_genre_seeds()["genres"]
+"""
+* MiniLM models are smaller and faster versions of BERT-like models with competitive performance. 
+* L6 indicates the number of layers in the model -
+a reduced number of layers compared to larger models like BERT, which typically have 12 or 24 layers. 
+"""
+genre_list = sp.recommendation_genre_seeds()["genres"] # genres accepted by recommendations()
 genre_embeddings = model.encode(genre_list)
 
 
 def get_genre_by_name(genre_name): 
     """
+    Matches genre_name input to closest existing genre in genre_list;
+    recommendations() only accepts from list
     """
     if genre_name.lower() in genre_list:
         genre_name = genre_name.lower()
@@ -244,9 +253,9 @@ def get_genre_by_name(genre_name):
         most_similar_index = similarity_scores.argmax()
         genre_name = genre_list[most_similar_index]
         return genre_name
+    
 
-
-mood_settings = {
+MOOD_SETTINGS = {
     "happy": {"max_instrumentalness": 0.001, "min_valence": 0.5},
     "sad": {"max_danceability": 0.75, "max_valence": 0.5},
     "energetic": {"min_tempo": 120, "min_danceability": 0.65},
@@ -254,31 +263,124 @@ mood_settings = {
 }
 
 
-seed_artist_limit = 1
-track_limit = 5
+from fuzzywuzzy import fuzz
+similarity_threshold = 75 # found after testing; out of 100
+def is_genre_match(genre1, genre2, threshold=similarity_threshold):
+    """
+    if you have a short string and a longer one, 
+    fuzz.partial_token_set_ratio() will score the similarity
+    of the shorter string to every possible sub-string
+    (of the same length as the shorter string) in the longer string. 
+    The highest similarity score is then returned.
+    """
+    score = fuzz.token_set_ratio(genre1, genre2)
+    print(score) # debugging
+    return score >= threshold
+
+
+NUM_ARTISTS = 20 # max 50
+TIME_RANGE = "medium_term"
+NUM_TRACKS = 10
+MAX_ARTISTS = 4
 def play_genre_by_name_and_mood(genre_name, user_mood):
     """
+    1. Retrieves user's genre request and their current mood
+    2. Matches genre and mood to existing options
+    3. Gets 4 of user's top artists that align with genre
+    4. Conducts personalized recommendations() search
     """
     genre_name = get_genre_by_name(genre_name)
-    print(genre_name) # debugging
-    user_mood = get_user_mood(user_mood)
-    print(user_mood) # debugging
-    mood_setting = mood_settings[user_mood]
+    user_mood = get_user_mood(user_mood).lower()
+    #mood_setting = mood_settings[user_mood]
+    print(genre_name) 
+    print(user_mood)
+    #print(mood_setting)
+    
     # increased personalization
-    #user_top_artists = sp.current_user_top_artists(limit=seed_artist_limit, time_range="medium_term")
-    #user_top_artists_ids = [artist['id'] for artist in user_top_artists['items']]
+    user_top_artists = sp.current_user_top_artists(limit=NUM_ARTISTS, time_range=TIME_RANGE) 
+    matching_artists_ids = []
+
+    ### READABLE ###
+    for artist in user_top_artists['items']:
+        #print(artist['genres']) 
+        for artist_genre in artist['genres']:
+            if is_genre_match(genre_name, artist_genre):
+                matching_artists_ids.append(artist['id'])
+                break # don't waste time cycling artist genres after match
+        if len(matching_artists_ids) == MAX_ARTISTS: # limit to pass to recommendations()
+            break 
+
+    ### EFFICIENT ### [WORSE VERSION] ~ INCLUDES ARTIST MULTIPLE TIMES PER MATCH
+    # matching_artists_ids = list(islice((artist['id'] for artist in user_top_artists['items'] 
+    #                                for artist_genre in artist['genres']
+    #                                if is_genre_match(genre_name, artist_genre)), MAX_ARTISTS))
+
+    if not matching_artists_ids:
+        matching_artists_ids = None
+    else: 
+        artist_names = [artist['name'] for artist in sp.artists(matching_artists_ids)['artists']]
+        print(artist_names)
+        print(matching_artists_ids)
 
     recommendations = sp.recommendations( # can pass maximum {genre + artists} = 5 seeds
-                                    seed_artists=None, 
+                                    seed_artists=matching_artists_ids, 
                                     seed_genres=[genre_name], 
                                     seed_tracks=None, 
-                                    limit=track_limit, # 20 default
+                                    limit=NUM_TRACKS, # number of tracks to return
                                     country=None,
-                                    **mood_setting
-                                    )
+                                    **MOOD_SETTINGS[user_mood])
+                                    
     track_uris = [track['uri'] for track in recommendations['tracks']]
     sp.start_playback(device_id=device_id, uris=track_uris)
-    return f"Now playing {genre_name}."
+    return f"♫ Now playing {genre_name} ♫"
+
+
+### ### ### Artist + Mood ### ### ###
+
+
+NUM_ALBUMS = 20 # max 20
+MAX_TRACKS = 10
+def play_artist_by_name_and_mood(artist_name, user_mood):
+    user_mood = get_user_mood(user_mood).lower()
+    print(user_mood)
+
+    # retrieving and shuffling all artist's tracks
+    results = sp.search(q=artist_name, type='artist')
+    artist_id = results['artists']['items'][0]['id']
+    # most recent albums retrieved first
+    artist_albums = sp.artist_albums(artist_id, album_type='album', limit=NUM_ALBUMS)
+    artist_tracks = []
+    for album in artist_albums['items']:
+        album_tracks = sp.album_tracks(album['id'])['items']
+        artist_tracks.extend(album_tracks)
+    random.shuffle(artist_tracks) 
+
+    # filtering until we find enough tracks that match user's mood
+    selected_tracks = []
+    for track in artist_tracks:
+        if len(selected_tracks) == MAX_TRACKS: # number of tracks to queue
+            break
+        features = sp.audio_features([track['id']])[0]
+        mood_criteria = MOOD_SETTINGS[user_mood]
+
+        match = True
+        for criteria, threshold in mood_criteria.items():
+            if "min_" in criteria and features[criteria[4:]] < threshold:
+                match = False
+                break
+            elif "max_" in criteria and features[criteria[4:]] > threshold:
+                match = False
+                break
+        if match:
+            print(f"{features}\n{mood_criteria}\n\n") # checking our work
+            selected_tracks.append(track)
+
+    track_uris = [track['uri'] for track in selected_tracks]
+    sp.start_playback(device_id=device_id, uris=track_uris)
+    return f"♫ Now playing {artist_name} ♫"
+    
+ 
+    
 
 
 
