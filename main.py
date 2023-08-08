@@ -1,58 +1,35 @@
-from langchain.chat_models import ChatOpenAI
+from langchain.schema import SystemMessage
+from langchain.agents import OpenAIFunctionsAgent
+from langchain.prompts import MessagesPlaceholder
 from langchain.memory import ConversationBufferMemory
-from langchain.agents import initialize_agent, AgentType
+from langchain.chat_models import ChatOpenAI
+from langchain.agents import AgentExecutor
 from agent_tools import custom_tools
-from typing import List 
+
 from audio import record_audio, transcribe_audio, play_generated_audio
 import keyboard
 import argparse
+
 from dotenv import load_dotenv
 load_dotenv()  
 
 
-# llm = ChatOpenAI(max_retries=3, temperature=0, model_name = "gpt-4-0613")
-# #llm = ChatOpenAI(max_retries=3, temperature=0)
-# memory = ConversationBufferMemory(memory_key="chat_history")
-# def initialize_agent_with_new_openai_functions(tools: List, is_agent_verbose: bool = True, max_iterations: int = 3, return_thought_process: bool = False):
-#     agent = initialize_agent(tools, llm, memory=memory,
-#                              agent=AgentType.OPENAI_FUNCTIONS, verbose=is_agent_verbose,
-#                              max_iterations=max_iterations, return_intermediate_steps=return_thought_process)
-#     return agent
-
-# agent = initialize_agent_with_new_openai_functions(
-#     tools=custom_tools
-# )
-
-from langchain.schema import SystemMessage
-from langchain.agents import OpenAIFunctionsAgent
-from langchain.agents import AgentExecutor
-from langchain.prompts import MessagesPlaceholder
-from langchain.memory import ConversationBufferMemory
-
-
 define_agent = """
-You are an AI music-player assistant named Apollo, designed to enrich users' listening experiences. 
-Your primary role is to execute commands using your custom set of tools that utilize Spotify's API.
+You are Apollo, an AI music-player assistant. Enhance the user's listening experience using your special toolkit.
 
-Your key responsibilities are:
+Your Main Duties:
 
-1. Play Music: Most of the time, you will fulfill music-related commands using one of your built-in tools.
+Play Music: Always employ your toolkit to play music. Do not rely on previously mentioned song names; instead, consistently use a tool for every request. 
 
-2. Smart Tool Usage: Strategically use your tools. Remember the tracks (songs) you've played for users and their order.
-This will help if a user wants you to replay a specific track - you should be able to identify which song they're referring to.
+Mood Monitoring: Continually assess the user's mood. If they don't specify their mood, ask them. 
+Don't assume 'neutral'. Adjust music based on mood shifts.
+Example: 'Happy' to 'more upbeat' = 'Energetic'
 
-3. Personal Interaction: Beyond interpreting and acting on user input, aim to establish a personal connection if a user expresses interest.
+Personal Interaction: Build a connection if the user shows interest.
 
-4. Mood Monitoring: You must always be monitoring the user's current mood/state-of-being
-as well as any subsequent user requests to alter the mood such as 'play something more upbeat'. 
-In these cases, transition the mood according to the implied direction. 
-For instance, if the current mood is 'happy' and the user requests something more upbeat, 
-shift the mood category to 'energetic'. If the current mood is 'energetic', and the user
-mentions they are tired, shift the mood to 'calm'.
+Seek Clarification: If a request seems vague, request more details.
 
-5. Seek Clarification: If a user's request is unclear, ask for more information to better fulfill their command.
-
-Remember, your overall goal is to provide a smooth, enjoyable, and personalized music listening experience for users.
+Aim for a seamless, delightful, and tailor-made music journey for every user.
 """
 
 
@@ -106,8 +83,6 @@ def main():
 if __name__ == "__main__":
     reminder = "\nWelcome, remember to awaken Spotify."
     print(reminder)
-    #play_generated_audio(reminder)
-    #play_generated_audio("\nWelcome to your personalized Spotify DJ experience. What do you want to hear today?")
     main()
 
 

@@ -25,6 +25,14 @@ class ArtistNameAndUserMoodInput(BaseModel):
     artist_name: str = Field(description="Artist name in the user's request.") 
     user_mood: str = Field(description="User's current mood/state-of-being.") 
 
+
+class RecommendationsInput(BaseModel):
+    genre_name: str = Field(description="Genre name in the user's request.")
+    artist_name: str = Field(description="Artist name in the user's request.")
+    track_name: str = Field(description="Track name in the user's request.")
+    user_mood: str = Field(description="User's current mood/state-of-being.") 
+
+
 # return_direct=True returns tool output directly to user
 @tool("play_track_by_name", return_direct=True, args_schema=TrackNameInput) 
 def tool_play_track_by_name(track_name: str) -> str:
@@ -57,7 +65,7 @@ def tool_pause_track(query: str) -> str:
 @tool("play_track", return_direct=True) 
 def tool_play_track(query: str) -> str:
     """
-    Use this tool when a user wants to play/resume/unpause their music.
+    Use this tool when a user wants to resume/unpause their music.
     """
     return spf.play_track()
 
@@ -66,6 +74,7 @@ def tool_play_track(query: str) -> str:
 def tool_skip_track(query: str) -> str:
     """
     Use this tool when a user wants to skip/go to the next track.
+    A user might just say "skip".
     """
     return spf.skip_track()
 
@@ -102,9 +111,7 @@ def tool_play_genre_by_name_and_mood(genre_name: str, user_mood: str) -> str:
     """
     Use this tool when a user wants to play a genre.
     You will need to identify both the genre name from the user's request, 
-    and also their current mood, which you should always be monitoring;
-    If the user requests a genre without explicitly stating their mood, ask them 
-    for their mood first. 
+    and also their current mood, which you should always be monitoring. 
     """
     return spf.play_genre_by_name_and_mood(genre_name, user_mood)
 
@@ -114,23 +121,29 @@ def tool_play_artist_by_name_and_mood(artist_name: str, user_mood: str) -> str:
     """
     Use this tool when a user wants to play an artist.
     You will need to identify both the artist name from the user's request, 
-    and also their current mood, which you should always be monitoring;
-    If the user requests an artist without explicitly stating their mood, ask them 
-    for their mood first. 
+    and also their current mood, which you should always be monitoring. 
     """
     return spf.play_artist_by_name_and_mood(artist_name, user_mood)
 
 
+@tool("play_recommended_tracks", return_direct=True, args_schema=RecommendationsInput) 
+def tool_play_recommended_tracks(genre_name: str, artist_name: str, track_name: str, user_mood: str) -> str:
+    """
+    Use this tool when a user wants track recommendations.
+    You will need to identify the genre name, artist name, and/or track name
+    from the user's request... and also their current mood, which you should always be monitoring.
+    """
+    return spf.play_recommended_tracks(genre_name, artist_name, track_name, user_mood)
 
 
-
-
-
-
-
-
-
-
+@tool("create_playlist_from_recommendations", return_direct=True, args_schema=RecommendationsInput) 
+def tool_create_playlist_from_recommendations(genre_name: str, artist_name: str, track_name: str, user_mood: str) -> str:
+    """
+    Use this tool when a user wants a playlist created (from recommended tracks).
+    You will need to identify the genre name, artist name, and/or track name
+    from the user's request... and also their current mood, which you should always be monitoring.
+    """
+    return spf.create_playlist_from_recommendations(genre_name, artist_name, track_name, user_mood)
 
 
 # llm will intelligently decide which tool to use from this list
@@ -144,6 +157,8 @@ custom_tools =[
     tool_play_playlist_by_name,
     tool_explain_track,
     tool_play_genre_by_name_and_mood,
-    tool_play_artist_by_name_and_mood
+    tool_play_artist_by_name_and_mood,
+    tool_play_recommended_tracks,
+    tool_create_playlist_from_recommendations
 ]
 
