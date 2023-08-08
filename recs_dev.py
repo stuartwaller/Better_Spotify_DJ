@@ -17,7 +17,8 @@ llm = ChatOpenAI(max_retries=3, temperature=0, model_name = "gpt-4")
 
 scope= ['user-library-read', 
         'user-read-playback-state', 
-        'user-modify-playback-state'] 
+        'user-modify-playback-state',
+        'user-top-read'] 
 
 
 sp = spotipy.Spotify(
@@ -75,105 +76,5 @@ for songs in moods.values():
 # df = df[cols]
 # pprint.pprint(df)
 
-
-### ### ### Mood Types ### ### ###
-
-
-# Happy
-max_instrumentalness = 0.001
-min_valence = 0.5
-
-# Sad
-max_danceability = 0.75
-max_valence = 0.5
-
-# Energetic
-min_tempo = 120
-min_danceability = 0.65
-
-# Calm
-max_energy = 0.75
-max_tempo = 140 
-
-
-### ### ### Functions ### ### ###
-
-
-def get_user_mood(user_mood): 
-    """
-    """
-    system_message_content = """
-        Your task is to evaluate the user's response to the question
-        'How are you feeling today' and determine their emotional state. 
-        Categorize this state into one of the four predefined moods: happy, sad, energetic, or calm. 
-        Following this initial categorization, monitor for any subsequent user requests to alter the mood, 
-        such as 'play something more upbeat'. In these cases, transition the mood according to the implied direction. 
-        For instance, if the current mood is 'happy' and the user requests something more upbeat, 
-        shift the mood category to 'energetic'. Remember, always return only the mood category as your output.
-        """
-    human_message_content = user_mood
-    messages = [
-        SystemMessage(content=system_message_content),
-        HumanMessage(content=human_message_content)
-    ]
-    ai_response = llm(messages).content
-    user_mood = ai_response
-    return user_mood
-
-
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-
-
-model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-genre_list = sp.recommendation_genre_seeds()["genres"]
-genre_embeddings = model.encode(genre_list)
-
-
-def get_genre_by_name(genre_name): 
-    """
-    """
-    if genre_name.lower() in genre_list:
-        genre_name = genre_name.lower()
-        return genre_name
-    else:
-        genre_name_embedding = model.encode([genre_name.lower()])
-        similarity_scores = cosine_similarity(genre_name_embedding, genre_embeddings)
-        most_similar_index = similarity_scores.argmax()
-        genre_name = genre_list[most_similar_index]
-        return genre_name
-    
-
-mood_settings = {
-    "happy": {"max_instrumentalness": 0.001, "min_valence": 0.5},
-    "sad": {"max_danceability": 0.75, "max_valence": 0.5},
-    "energetic": {"min_tempo": 120, "min_danceability": 0.65},
-    "calm": {"max_energy": 0.75, "max_tempo": 140}
-}
-
-
-def play_genre_by_name_and_mood(genre_name, user_mood):
-    """
-    """
-    genre_name = get_genre_by_name(genre_name)
-    print(genre_name) # debugging
-    user_mood = get_user_mood(user_mood)
-    print(user_mood) # debugging
-    mood_setting = mood_settings[user_mood]
-    recommendations = sp.recommendations(seed_artists=None, 
-                                    seed_genres=[genre_name], 
-                                    seed_tracks=None, 
-                                    limit=20, 
-                                    country=None,
-                                    **mood_setting)
-    track_uris = [track['uri'] for track in recommendations['tracks']]
-    sp.start_playback(device_id=device_id, uris=track_uris)
-    return f"Now playing {genre_name}."
-    
-
-
-
-
-
-
+string = "lovesosa"
+print(string.replace(" ", ""))

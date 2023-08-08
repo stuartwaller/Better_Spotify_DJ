@@ -1,9 +1,10 @@
-import os
-import tempfile
 import sounddevice as sd
 import soundfile as sf
-from elevenlabs import generate, play
+import tempfile
+import os
 import openai
+from elevenlabs import generate, play
+
 from dotenv import load_dotenv
 load_dotenv()  
 
